@@ -1,7 +1,7 @@
 {
     "name": "wildphp/module-moderation",
     "description": "Moderation commands for WildPHP.",
-    "license": "GPL-3.0",
+    "license": "MIT",
     "authors": [
         {
             "name": "Yoshi2889",
