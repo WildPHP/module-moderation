@@ -17,12 +17,16 @@ use WildPHP\Core\ComponentContainer;
 use WildPHP\Core\Configuration\Configuration;
 use WildPHP\Core\Connection\Queue;
 use WildPHP\Core\Modules\BaseModule;
-use WildPHP\Core\Tasks\TaskController;
 use WildPHP\Core\Users\User;
 use Yoshi2889\Tasks\CallbackTask;
+use Yoshi2889\Tasks\TaskController;
 
 class Moderation extends BaseModule
 {
+	/**
+	 * @var TaskController
+	 */
+	protected $taskController;
 	/**
 	 * ModerationCommands constructor.
 	 *
@@ -30,6 +34,8 @@ class Moderation extends BaseModule
 	 */
 	public function __construct(ComponentContainer $container)
 	{
+		$this->taskController = new TaskController($container->getLoop());
+
 		$commandHelp = new CommandHelp();
 		$commandHelp->addPage('Kicks the specified user from the channel. Usage: kick [nickname] ([reason])');
 		CommandHandler::fromContainer($container)
@@ -250,8 +256,7 @@ class Moderation extends BaseModule
 		{
 			$args = [$source, $hostname, $container];
 			$task = new CallbackTask([$this, 'removeBan'], $time, $args);
-			TaskController::fromContainer($container)
-				->addTask($task);
+			$this->taskController->add($task);
 		}
 
 		Queue::fromContainer($container)
@@ -293,8 +298,7 @@ class Moderation extends BaseModule
 		{
 			$args = [$source, $ban, $container];
 			$task = new CallbackTask([$this, 'removeBan'], $offset, $args);
-			TaskController::fromContainer($container)
-				->addTask($task);
+			$this->taskController->add($task);
 		}
 
 		Queue::fromContainer($container)
