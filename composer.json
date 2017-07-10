@@ -1,6 +1,6 @@
 {
-    "name": "wildphp/module-autorejoin",
-    "description": "Automatically rejoin channels on kick",
+    "name": "wildphp/module-moderation",
+    "description": "Moderation commands for WildPHP.",
     "license": "GPL-3.0",
     "authors": [
         {
@@ -9,10 +9,12 @@
         }
     ],
     "require": {
+        "php": ">=7.1.0",
+        "yoshi2889/tasks": "^0.1"
     },
     "autoload": {
         "psr-4": {
-            "WildPHP\\Modules\\AutoRejoin\\": "src"
+            "WildPHP\\Modules\\Moderation\\": "src"
         }
     },
     "minimum-stability": "alpha",
