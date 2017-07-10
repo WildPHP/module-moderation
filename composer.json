@@ -1,0 +1,20 @@
+{
+    "name": "wildphp/module-autorejoin",
+    "description": "Automatically rejoin channels on kick",
+    "license": "GPL-3.0",
+    "authors": [
+        {
+            "name": "Yoshi2889",
+            "email": "rick.2889@gmail.com"
+        }
+    ],
+    "require": {
+    },
+    "autoload": {
+        "psr-4": {
+            "WildPHP\\Modules\\AutoRejoin\\": "src"
+        }
+    },
+    "minimum-stability": "alpha",
+    "prefer-stable": true
+}
