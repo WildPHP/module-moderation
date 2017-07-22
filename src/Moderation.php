@@ -315,4 +315,12 @@ class Moderation extends BaseModule
 		Queue::fromContainer($container)
 			->mode($source->getName(), '-b', [$banmask]);
 	}
+
+	/**
+	 * @return string
+	 */
+	public static function getSupportedVersionConstraint(): string
+	{
+		return '^3.0.0';
+	}
 }
