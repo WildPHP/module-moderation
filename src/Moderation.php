@@ -37,43 +37,43 @@ class Moderation extends BaseModule
 		$this->taskController = new TaskController($container->getLoop());
 
 		$commandHelp = new CommandHelp();
-		$commandHelp->addPage('Kicks the specified user from the channel. Usage: kick [nickname] ([reason])');
+		$commandHelp->append('Kicks the specified user from the channel. Usage: kick [nickname] ([reason])');
 		CommandHandler::fromContainer($container)
 			->registerCommand('kick', [$this, 'kickCommand'], $commandHelp, 1, -1, 'kick');
 
 		$commandHelp = new CommandHelp();
-		$commandHelp->addPage('Requests a user to leave the channel. Usage: remove [nickname] ([reason])');
+		$commandHelp->append('Requests a user to leave the channel. Usage: remove [nickname] ([reason])');
 		CommandHandler::fromContainer($container)
 			->registerCommand('remove', [$this, 'removeCommand'], $commandHelp, 1, -1, 'remove');
 
 		$commandHelp = new CommandHelp();
-		$commandHelp->addPage('Changes the topic for the specified channel. Usage: topic ([channel]) [message]');
+		$commandHelp->append('Changes the topic for the specified channel. Usage: topic ([channel]) [message]');
 		CommandHandler::fromContainer($container)
 			->registerCommand('topic', [$this, 'topicCommand'], $commandHelp, 1, -1, 'topic');
 
 		$commandHelp = new CommandHelp();
-		$commandHelp->addPage('Kicks the specified user from the channel and adds a ban. Usage #1: kban [nickname] [minutes] ([reason])');
-		$commandHelp->addPage('Usage #2: kban [nickname] [minutes] [redirect channel] ([reason])');
-		$commandHelp->addPage('Pass 0 minutes for an indefinite ban.');
+		$commandHelp->append('Kicks the specified user from the channel and adds a ban. Usage #1: kban [nickname] [minutes] ([reason])');
+		$commandHelp->append('Usage #2: kban [nickname] [minutes] [redirect channel] ([reason])');
+		$commandHelp->append('Pass 0 minutes for an indefinite ban.');
 		CommandHandler::fromContainer($container)
 			->registerCommand('kban', [$this, 'kbanCommand'], $commandHelp, 2, -1, 'kban');
 
 		$commandHelp = new CommandHelp();
-		$commandHelp->addPage('Bans the specified user from the channel. Usage #1: ban [nickname] [minutes]');
-		$commandHelp->addPage('Usage #2: ban [nickname] [minutes] [redirect channel]');
-		$commandHelp->addPage('Pass 0 minutes for an indefinite ban.');
+		$commandHelp->append('Bans the specified user from the channel. Usage #1: ban [nickname] [minutes]');
+		$commandHelp->append('Usage #2: ban [nickname] [minutes] [redirect channel]');
+		$commandHelp->append('Pass 0 minutes for an indefinite ban.');
 		CommandHandler::fromContainer($container)
 			->registerCommand('ban', [$this, 'banCommand'], $commandHelp, 2, 3, 'ban');
 
 		$commandHelp = new CommandHelp();
-		$commandHelp->addPage('Bans the specified host from the channel. Usage #1: banhost [hostname] [minutes]');
-		$commandHelp->addPage('Usage #2: banhost [hostname] [minutes] [redirect channel]');
-		$commandHelp->addPage('Pass 0 minutes for an indefinite ban.');
+		$commandHelp->append('Bans the specified host from the channel. Usage #1: banhost [hostname] [minutes]');
+		$commandHelp->append('Usage #2: banhost [hostname] [minutes] [redirect channel]');
+		$commandHelp->append('Pass 0 minutes for an indefinite ban.');
 		CommandHandler::fromContainer($container)
 			->registerCommand('banhost', [$this, 'banhostCommand'], $commandHelp, 2, 3, 'ban');
 
 		$commandHelp = new CommandHelp();
-		$commandHelp->addPage('Changes mode for a specified entity. Usage: mode [mode(s)] ([entity/ies])');
+		$commandHelp->append('Changes mode for a specified entity. Usage: mode [mode(s)] ([entity/ies])');
 		CommandHandler::fromContainer($container)
 			->registerCommand('mode', [$this, 'modeCommand'], $commandHelp, 1, 2, 'mode');
 	}
