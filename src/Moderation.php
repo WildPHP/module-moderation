@@ -275,7 +275,7 @@ class Moderation extends BaseModule
 		$target = array_shift($args);
 
 		Queue::fromContainer($container)
-			->mode($source->getName(), $modes, $target);
+			->mode($source->getName(), $modes, [$target]);
 	}
 
 	/**
@@ -297,7 +297,7 @@ class Moderation extends BaseModule
 		if ($offset != 0)
 		{
 			$args = [$source, $ban, $container];
-			$task = new CallbackTask([$this, 'removeBan'], $offset, $args);
+			$task = new CallbackTask([$this, 'removeBan'], (int) $offset, $args);
 			$this->taskController->add($task);
 		}
 
