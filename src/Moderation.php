@@ -194,7 +194,7 @@ class Moderation extends BaseModule
 			return;
 		}
 
-		$time = time() + 60 * $minutes;
+		$time = 60 * $minutes;
 		$this->banUser($source, $userObj, $container, $time, $redirect);
 
 		Queue::fromContainer($container)
@@ -231,7 +231,7 @@ class Moderation extends BaseModule
 			return;
 		}
 
-		$time = time() + 60 * $minutes;
+		$time = 60 * $minutes;
 		$this->banUser($source, $userObj, $container, $time, $redirect);
 	}
 
@@ -297,7 +297,7 @@ class Moderation extends BaseModule
 		if ($offset != 0)
 		{
 			$args = [$source, $ban, $container];
-			$task = new CallbackTask([$this, 'removeBan'], (int) $offset, $args);
+			$task = new CallbackTask([$this, 'removeBan'], $offset, $args);
 			$this->taskController->add($task);
 		}
 
