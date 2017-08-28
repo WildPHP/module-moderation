@@ -9,7 +9,6 @@
 
 namespace WildPHP\Modules\Moderation;
 
-
 use WildPHP\Core\Channels\Channel;
 use WildPHP\Core\Channels\ChannelCollection;
 use WildPHP\Core\Channels\ValidChannelNameParameter;
@@ -23,6 +22,7 @@ use WildPHP\Core\Commands\StringParameter;
 use WildPHP\Core\ComponentContainer;
 use WildPHP\Core\Configuration\Configuration;
 use WildPHP\Core\Connection\Queue;
+use WildPHP\Core\EventEmitter;
 use WildPHP\Core\Modules\BaseModule;
 use WildPHP\Core\Users\User;
 use Yoshi2889\Tasks\CallbackTask;
@@ -42,7 +42,16 @@ class Moderation extends BaseModule
 	public function __construct(ComponentContainer $container)
 	{
 		$this->taskController = new TaskController($container->getLoop());
-		$channelPrefix = Configuration::fromContainer($this->getContainer())['serverConfig']['chantypes'];
+		$this->setContainer($container);
+
+		EventEmitter::fromContainer($container)
+			->on('irc.line.in.376', [$this, 'registerCommands']);
+	}
+
+	public function registerCommands()
+	{
+		$container = $this->getContainer();
+		$channelPrefix = Configuration::fromContainer($container)['serverConfig']['chantypes'];
 
 		CommandHandler::fromContainer($container)->registerCommand('kick',
 			new Command(
@@ -98,6 +107,12 @@ class Moderation extends BaseModule
 						'redirect' => new ValidChannelNameParameter($channelPrefix),
 						'reason' => new StringParameter()
 					], true),
+					new ParameterStrategy(3, -1, [
+						'nickname' => new StringParameter(),
+						'redirect' => new ValidChannelNameParameter($channelPrefix),
+						'minutes' => new NumericParameter(),
+						'reason' => new StringParameter()
+					], true),
 					new ParameterStrategy(2, -1, [
 						'nickname' => new StringParameter(),
 						'redirect' => new ValidChannelNameParameter($channelPrefix),
@@ -106,6 +121,10 @@ class Moderation extends BaseModule
 					new ParameterStrategy(2, -1, [
 						'nickname' => new StringParameter(),
 						'minutes' => new NumericParameter(),
+						'reason' => new StringParameter()
+					], true),
+					new ParameterStrategy(1, -1, [
+						'nickname' => new StringParameter(),
 						'reason' => new StringParameter()
 					], true)
 				],
