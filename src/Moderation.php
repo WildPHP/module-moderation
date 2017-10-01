@@ -9,13 +9,20 @@
 
 namespace WildPHP\Modules\Moderation;
 
-
 use WildPHP\Core\Channels\Channel;
+use WildPHP\Core\Channels\ChannelCollection;
+use WildPHP\Core\Channels\ValidChannelNameParameter;
+use WildPHP\Core\Commands\Command;
 use WildPHP\Core\Commands\CommandHandler;
 use WildPHP\Core\Commands\CommandHelp;
+use WildPHP\Core\Commands\JoinedChannelParameter;
+use WildPHP\Core\Commands\NumericParameter;
+use WildPHP\Core\Commands\ParameterStrategy;
+use WildPHP\Core\Commands\StringParameter;
 use WildPHP\Core\ComponentContainer;
 use WildPHP\Core\Configuration\Configuration;
 use WildPHP\Core\Connection\Queue;
+use WildPHP\Core\EventEmitter;
 use WildPHP\Core\Modules\BaseModule;
 use WildPHP\Core\Users\User;
 use Yoshi2889\Tasks\CallbackTask;
@@ -35,47 +42,161 @@ class Moderation extends BaseModule
 	public function __construct(ComponentContainer $container)
 	{
 		$this->taskController = new TaskController($container->getLoop());
+		$this->setContainer($container);
 
-		$commandHelp = new CommandHelp();
-		$commandHelp->append('Kicks the specified user from the channel. Usage: kick [nickname] ([reason])');
-		CommandHandler::fromContainer($container)
-			->registerCommand('kick', [$this, 'kickCommand'], $commandHelp, 1, -1, 'kick');
+		EventEmitter::fromContainer($container)
+			->on('irc.line.in.376', [$this, 'registerCommands']);
+	}
 
-		$commandHelp = new CommandHelp();
-		$commandHelp->append('Requests a user to leave the channel. Usage: remove [nickname] ([reason])');
-		CommandHandler::fromContainer($container)
-			->registerCommand('remove', [$this, 'removeCommand'], $commandHelp, 1, -1, 'remove');
+	public function registerCommands()
+	{
+		$container = $this->getContainer();
+		$channelPrefix = Configuration::fromContainer($container)['serverConfig']['chantypes'];
 
-		$commandHelp = new CommandHelp();
-		$commandHelp->append('Changes the topic for the specified channel. Usage: topic ([channel]) [message]');
-		CommandHandler::fromContainer($container)
-			->registerCommand('topic', [$this, 'topicCommand'], $commandHelp, 1, -1, 'topic');
+		CommandHandler::fromContainer($container)->registerCommand('kick',
+			new Command(
+				[$this, 'kickCommand'],
+				new ParameterStrategy(1, -1, [
+					'nickname' => new StringParameter(),
+					'reason' => new StringParameter()
+				], true),
+				new CommandHelp([
+					'Kicks the specified user from the channel. Usage: kick [nickname] ([reason])'
+				]),
+				'kick'
+			));
 
-		$commandHelp = new CommandHelp();
-		$commandHelp->append('Kicks the specified user from the channel and adds a ban. Usage #1: kban [nickname] [minutes] ([reason])');
-		$commandHelp->append('Usage #2: kban [nickname] [minutes] [redirect channel] ([reason])');
-		$commandHelp->append('Pass 0 minutes for an indefinite ban.');
-		CommandHandler::fromContainer($container)
-			->registerCommand('kban', [$this, 'kbanCommand'], $commandHelp, 2, -1, 'kban');
+		CommandHandler::fromContainer($container)->registerCommand('remove',
+			new Command(
+				[$this, 'removeCommand'],
+				new ParameterStrategy(1, -1, [
+					'nickname' => new StringParameter(),
+					'reason' => new StringParameter()
+				], true),
+				new CommandHelp([
+					'Requests a user to leave the channel. Usage: remove [nickname] ([reason])'
+				]),
+				'remove'
+			));
 
-		$commandHelp = new CommandHelp();
-		$commandHelp->append('Bans the specified user from the channel. Usage #1: ban [nickname] [minutes]');
-		$commandHelp->append('Usage #2: ban [nickname] [minutes] [redirect channel]');
-		$commandHelp->append('Pass 0 minutes for an indefinite ban.');
-		CommandHandler::fromContainer($container)
-			->registerCommand('ban', [$this, 'banCommand'], $commandHelp, 2, 3, 'ban');
+		CommandHandler::fromContainer($container)->registerCommand('topic',
+			new Command(
+				[$this, 'topicCommand'],
+				[
+					new ParameterStrategy(2, -1, [
+						'channel' => new JoinedChannelParameter(ChannelCollection::fromContainer($container)),
+						'message' => new StringParameter()
+					], true),
+					new ParameterStrategy(1, -1, [
+						'message' => new StringParameter()
+					], true),
+				],
+				new CommandHelp([
+					'Changes the topic for the specified channel. Usage: topic ([channel]) [message]'
+				]),
+				'topic'
+			));
 
-		$commandHelp = new CommandHelp();
-		$commandHelp->append('Bans the specified host from the channel. Usage #1: banhost [hostname] [minutes]');
-		$commandHelp->append('Usage #2: banhost [hostname] [minutes] [redirect channel]');
-		$commandHelp->append('Pass 0 minutes for an indefinite ban.');
-		CommandHandler::fromContainer($container)
-			->registerCommand('banhost', [$this, 'banhostCommand'], $commandHelp, 2, 3, 'ban');
+		CommandHandler::fromContainer($container)->registerCommand('kban',
+			new Command(
+				[$this, 'kbanCommand'],
+				[
+					new ParameterStrategy(3, -1, [
+						'nickname' => new StringParameter(),
+						'minutes' => new NumericParameter(),
+						'redirect' => new ValidChannelNameParameter($channelPrefix),
+						'reason' => new StringParameter()
+					], true),
+					new ParameterStrategy(3, -1, [
+						'nickname' => new StringParameter(),
+						'redirect' => new ValidChannelNameParameter($channelPrefix),
+						'minutes' => new NumericParameter(),
+						'reason' => new StringParameter()
+					], true),
+					new ParameterStrategy(2, -1, [
+						'nickname' => new StringParameter(),
+						'redirect' => new ValidChannelNameParameter($channelPrefix),
+						'reason' => new StringParameter()
+					], true),
+					new ParameterStrategy(2, -1, [
+						'nickname' => new StringParameter(),
+						'minutes' => new NumericParameter(),
+						'reason' => new StringParameter()
+					], true),
+					new ParameterStrategy(1, -1, [
+						'nickname' => new StringParameter(),
+						'reason' => new StringParameter()
+					], true)
+				],
+				new CommandHelp([
+					'Kicks the specified user from the channel and adds a ban. Usage: ban [nickname] ([minutes]) ([redirect channel])',
+					'Leave minutes empty or pass 0 minutes for an indefinite ban.'
+				]),
+				'kban'
+			));
 
-		$commandHelp = new CommandHelp();
-		$commandHelp->append('Changes mode for a specified entity. Usage: mode [mode(s)] ([entity/ies])');
-		CommandHandler::fromContainer($container)
-			->registerCommand('mode', [$this, 'modeCommand'], $commandHelp, 1, 2, 'mode');
+		CommandHandler::fromContainer($container)->registerCommand('ban',
+			new Command(
+				[$this, 'banCommand'],
+				[
+					new ParameterStrategy(2, 2, [
+						'nickname' => new StringParameter(),
+						'redirect' => new ValidChannelNameParameter($channelPrefix)
+					]),
+					new ParameterStrategy(3, 3, [
+						'nickname' => new StringParameter(),
+						'minutes' => new NumericParameter(),
+						'redirect' => new ValidChannelNameParameter($channelPrefix)
+					]),
+					new ParameterStrategy(2, 2, [
+						'nickname' => new StringParameter(),
+						'minutes' => new NumericParameter()
+					])
+				],
+				new CommandHelp([
+					'Bans the specified user from the channel. Usage: ban [nickname] ([minutes]) ([redirect channel])',
+					'Leave minutes empty or pass 0 minutes for an indefinite ban.'
+				]),
+				'ban'
+			));
+
+		CommandHandler::fromContainer($container)->registerCommand('banhost',
+			new Command(
+				[$this, 'banhostCommand'],
+				[
+					new ParameterStrategy(2, 2, [
+						'hostname' => new StringParameter(),
+						'redirect' => new ValidChannelNameParameter($channelPrefix)
+					]),
+					new ParameterStrategy(3, 3, [
+						'hostname' => new StringParameter(),
+						'minutes' => new NumericParameter(),
+						'redirect' => new ValidChannelNameParameter($channelPrefix)
+					]),
+					new ParameterStrategy(2, 2, [
+						'hostname' => new StringParameter(),
+						'minutes' => new NumericParameter()
+					])
+				],
+				new CommandHelp([
+					'Bans the specified host from the channel. Usage: banhost [hostname] ([minutes]) ([redirect channel])',
+					'Leave minutes empty or pass 0 minutes for an indefinite ban.'
+				]),
+				'ban'
+			));
+
+		CommandHandler::fromContainer($container)->registerCommand('mode',
+			new Command(
+				[$this, 'modeCommand'],
+				new ParameterStrategy(1, 2, [
+					'modes' => new StringParameter(),
+					'entities' => new StringParameter()
+				]),
+				new CommandHelp([
+					'Changes mode for a specified entity. Usage: mode [mode(s)] ([entity/ies])'
+				]),
+				'mode'
+			));
 	}
 
 	/**
@@ -86,8 +207,8 @@ class Moderation extends BaseModule
 	 */
 	public function kickCommand(Channel $source, User $user, $args, ComponentContainer $container)
 	{
-		$nickname = array_shift($args);
-		$message = !empty($args) ? implode(' ', $args) : $nickname;
+		$nickname = (string) $args['nickname'];
+		$message = !empty($args['reason']) ? $args['reason'] : $nickname;
 		$userObj = $source->getUserCollection()
 			->findByNickname($nickname);
 
@@ -119,8 +240,8 @@ class Moderation extends BaseModule
 	 */
 	public function removeCommand(Channel $source, User $user, $args, ComponentContainer $container)
 	{
-		$nickname = array_shift($args);
-		$message = !empty($args) ? implode(' ', $args) : $nickname;
+		$nickname = (string) $args['nickname'];
+		$message = !empty($args['reason']) ? $args['reason'] : $nickname;
 		$userObj = $source->getUserCollection()
 			->findByNickname($nickname);
 
@@ -152,12 +273,10 @@ class Moderation extends BaseModule
 	 */
 	public function topicCommand(Channel $source, User $user, $args, ComponentContainer $container)
 	{
-		$channelName = $source->getName();
-
-		if (Channel::isValidName($args[0], Configuration::fromContainer($container)['prefix']))
-			$channelName = array_shift($args);
-
-		$message = implode(' ', $args);
+		/** @var Channel $channel */
+		$channel = !empty($args['channel']) ? $args['channel'] : $source;
+		$channelName = $channel->getName();
+		$message = $args['message'];
 
 		Queue::fromContainer($container)
 			->topic($channelName, $message);
@@ -171,10 +290,10 @@ class Moderation extends BaseModule
 	 */
 	public function kbanCommand(Channel $source, User $user, $args, ComponentContainer $container)
 	{
-		$nickname = array_shift($args);
-		$minutes = array_shift($args);
-		$redirect = !empty($args) && Channel::isValidName($args[0], Configuration::fromContainer($container)['prefix']) ? array_shift($args) : '';
-		$message = !empty($args) ? implode(' ', $args) : $nickname;
+		$nickname = (string) $args['nickname'];
+		$message = !empty($args['reason']) ? $args['reason'] : $nickname;
+		$minutes = !empty($args['minutes']) ? (int) $args['minutes'] : 0;
+		$redirect = !empty($args['redirect']) ? $args['redirect'] : '';
 		$userObj = $source->getUserCollection()
 			->findByNickname($nickname);
 
@@ -209,9 +328,9 @@ class Moderation extends BaseModule
 	 */
 	public function banCommand(Channel $source, User $user, $args, ComponentContainer $container)
 	{
-		$nickname = array_shift($args);
-		$minutes = array_shift($args);
-		$redirect = !empty($args) && Channel::isValidName($args[0], Configuration::fromContainer($container)['prefix']) ? array_shift($args) : '';
+		$nickname = (string) $args['nickname'];
+		$minutes = !empty($args['minutes']) ? (int) $args['minutes'] : 0;
+		$redirect = !empty($args['redirect']) ? $args['redirect'] : '';
 		$userObj = $source->getUserCollection()
 			->findByNickname($nickname);
 
@@ -243,24 +362,11 @@ class Moderation extends BaseModule
 	 */
 	public function banhostCommand(Channel $source, User $user, $args, ComponentContainer $container)
 	{
-		$hostname = array_shift($args);
-		$minutes = array_shift($args);
-		$redirect = !empty($args) && Channel::isValidName($args[0], Configuration::fromContainer($container)['prefix']) ? array_shift($args) : '';
+		$hostname = (string) $args['hostname'];
+		$minutes = !empty($args['minutes']) ? (int) $args['minutes'] : 0;
+		$redirect = !empty($args['redirect']) ? $args['redirect'] : '';
 		$time = 60 * $minutes;
-		$this->banUser($source, $hostname, $container, $time, $redirect);
-
-		if (!empty($redirect))
-			$hostname .= '$' . $redirect;
-
-		if ($time != 0)
-		{
-			$args = [$source, $hostname, $container];
-			$task = new CallbackTask([$this, 'removeBan'], $time, $args);
-			$this->taskController->add($task);
-		}
-
-		Queue::fromContainer($container)
-			->mode($source->getName(), '+b', [$hostname]);
+		$this->applyBanmask($source, $hostname, $container, $time, $redirect);
 	}
 
 	/**
@@ -271,8 +377,8 @@ class Moderation extends BaseModule
 	 */
 	public function modeCommand(Channel $source, User $user, $args, ComponentContainer $container)
 	{
-		$modes = array_shift($args);
-		$target = array_shift($args);
+		$modes = $args['modes'];
+		$target = !empty($args['entities']) ? $args['entities'] : '';
 
 		Queue::fromContainer($container)
 			->mode($source->getName(), $modes, [$target]);
@@ -291,18 +397,30 @@ class Moderation extends BaseModule
 		$username = $userObj->getUsername();
 		$ban = '*!' . $username . '@' . $hostname;
 
+		$this->applyBanmask($source, $ban, $container, $offset, $redirect);
+	}
+
+	/**
+	 * @param Channel $source
+	 * @param string $banmask
+	 * @param ComponentContainer $container
+	 * @param int $offset
+	 * @param string $redirect
+	 */
+	protected function applyBanmask(Channel $source, string $banmask, ComponentContainer $container, int $offset, string $redirect = '')
+	{
 		if (!empty($redirect))
-			$ban .= '$' . $redirect;
+			$banmask .= '$' . $redirect;
 
 		if ($offset != 0)
 		{
-			$args = [$source, $ban, $container];
+			$args = [$source, $banmask, $container];
 			$task = new CallbackTask([$this, 'removeBan'], $offset, $args);
 			$this->taskController->add($task);
 		}
 
 		Queue::fromContainer($container)
-			->mode($source->getName(), '+b', [$ban]);
+			->mode($source->getName(), '+b', [$banmask]);
 	}
 
 	/**
